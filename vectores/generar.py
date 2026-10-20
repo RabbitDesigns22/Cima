@@ -237,6 +237,8 @@ def reverso(cta=False):
 if __name__ == "__main__":
     import cairosvg
 
+    os.makedirs(os.path.join(OUT, "png"), exist_ok=True)
+
     piezas = (("frente", frente), ("reverso", reverso), ("reverso_cta", lambda: reverso(True)))
     for nombre, fn in piezas:
         body = fn()
@@ -248,3 +250,9 @@ if __name__ == "__main__":
         cairosvg.svg2png(url=os.path.join(OUT, f"nfconecta_{nombre}_preview.svg"),
                          write_to=os.path.join(OUT, f"nfconecta_{nombre}_preview.png"),
                          output_width=1712)
+        # PNG a 600 ppp: transparente (solo diseño) y con fondo madera.
+        px = round(W / 25.4 * 600)
+        cairosvg.svg2png(url=os.path.join(OUT, f"nfconecta_{nombre}.svg"),
+                         write_to=os.path.join(OUT, "png", f"nfconecta_{nombre}_transparente.png"), output_width=px)
+        cairosvg.svg2png(url=os.path.join(OUT, f"nfconecta_{nombre}_preview.svg"),
+                         write_to=os.path.join(OUT, "png", f"nfconecta_{nombre}_madera.png"), output_width=px)
