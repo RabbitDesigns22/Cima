@@ -35,8 +35,7 @@ def text(t, size, cx, cy):
     return pen.getCommands()
 
 
-def svg():
-    defs = """<defs>
+DEFS = """<defs>
 <linearGradient id="azul" x1="0" y1="0" x2="0" y2="1">
   <stop offset="0" stop-color="#3A6FE0"/><stop offset="0.5" stop-color="#1F4FC2"/><stop offset="1" stop-color="#0E2F86"/></linearGradient>
 <linearGradient id="azul-borde" x1="0" y1="0" x2="1" y2="1">
@@ -46,6 +45,10 @@ def svg():
 <linearGradient id="marfil-borde" x1="0" y1="0" x2="1" y2="1">
   <stop offset="0" stop-color="#FFF9EA"/><stop offset="1" stop-color="#B89E66"/></linearGradient>
 </defs>"""
+
+
+def fichas():
+    """Grupo de fichas sin envoltorio SVG (requiere DEFS)."""
     parts = []
     for i, (letra, num, azul) in enumerate(TILES):
         x = i * (S + G)
@@ -55,8 +58,12 @@ def svg():
             f'<rect x="{x + BEVEL}" y="{BEVEL}" width="{S - 2 * BEVEL}" height="{S - 2 * BEVEL}" '
             f'rx="{R - BEVEL / 2}" fill="url(#{cara})"/>'
             f'<path d="{text(letra, 68, x + S / 2 - 3, S / 2 - 2)}{text(num, 21, x + S - 17, S - 20)}" fill="{tinta}"/></g>')
+    return "\n".join(parts)
+
+
+def svg():
     return (f'<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" '
-            f'viewBox="0 0 {W:g} {H:g}" width="{W:g}" height="{H:g}">\n{defs}\n' + "\n".join(parts) + "\n</svg>\n")
+            f'viewBox="0 0 {W:g} {H:g}" width="{W:g}" height="{H:g}">\n{DEFS}\n{fichas()}\n</svg>\n')
 
 
 if __name__ == "__main__":
