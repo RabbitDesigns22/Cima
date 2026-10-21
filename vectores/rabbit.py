@@ -1,21 +1,16 @@
 """Tarjeta metálica Rabbit Designs: archivos DTF UV (negro sobre transparente) y vistas previas.
 
-- Frente: logo RABBIT / DESIGNS con el conejo sobre la I.
+- Frente: logo RABBIT / DESIGNS con el conejo sobre la I (calcado del original).
 - Reverso: el conejo solo.
 Los PNG de impresión son 100% negro sobre fondo transparente: el metal queda a la vista.
 Tamaño CR80 85.6 x 54 mm a 1200 ppp. Uso: python3 vectores/rabbit.py
 """
 import io
+import json
 import os
 
 import cairosvg
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.pens.transformPen import TransformPen
-from fontTools.ttLib import TTFont
 from PIL import Image
-from shapely import affinity
-from shapely.geometry import Point
-from shapely.ops import unary_union
 
 from generar import d, rbox
 from metal import cepillado
@@ -26,90 +21,30 @@ W, H, R, DPI = 85.6, 54.0, 3.18, 1200
 INK = "#000000"
 
 
-class Font:
-    def __init__(self, name):
-        f = TTFont(os.path.join(BASE, "fuentes", name))
-        self.glyphs, self.cmap = f.getGlyphSet(), f.getBestCmap()
-        self.upm, self.cap = f["head"].unitsPerEm, f["OS/2"].sCapHeight
-
-    def advances(self, text, size, tracking=0.0):
-        s = size / self.upm
-        names = [self.cmap[ord(c)] for c in text]
-        adv = [self.glyphs[n].width * s for n in names]
-        return names, adv, sum(adv) + tracking * (len(names) - 1)
-
-    def path(self, text, size, x, base, tracking=0.0):
-        """Texto desde x (izquierda) sobre la línea base; devuelve (path, posiciones x de cada letra)."""
-        s = size / self.upm
-        names, adv, _ = self.advances(text, size, tracking)
-        pen = SVGPathPen(self.glyphs, ntos=lambda v: f"{v:.3f}".rstrip("0").rstrip("."))
-        xs = []
-        for n, a in zip(names, adv):
-            xs.append(x)
-            self.glyphs[n].draw(TransformPen(pen, (s, 0, 0, -s, x, base)))
-            x += a + tracking
-        return pen.getCommands(), xs
-
-    def ink_bounds(self, ch, size):
-        """Límites horizontales reales (sin márgenes laterales) de un glifo."""
-        from fontTools.pens.boundsPen import BoundsPen
-        bp = BoundsPen(self.glyphs)
-        self.glyphs[self.cmap[ord(ch)]].draw(bp)
-        s = size / self.upm
-        return bp.bounds[0] * s, bp.bounds[2] * s
+# Trazado vectorial del logo original (rabbit/fuente/logo_original.jpg) hecho con potrace,
+# en coordenadas de píxel del original de 1080 x 1080.
+TRAZADO = json.load(open(os.path.join(OUT, "fuente", "trazado.json")))
+LOGO_X0, LOGO_X1, LOGO_Y0, LOGO_Y1 = 177, 902, 305, 671  # caja del logo completo
+CONEJO_Y0, CONEJO_Y1, CONEJO_X0, CONEJO_X1 = 305, 452, 681, 824  # caja del conejo
+ANCHO_LOGO = 55.0  # mm en el frente
+ALTO_CONEJO = 30.0  # mm en el reverso
 
 
-BLACK, LIGHT = Font("Montserrat-Black.ttf"), Font("Montserrat-Light.ttf")
-
-
-def conejo():
-    """Silueta del conejo (cabeza + oreja recta + oreja doblada). Base de la cabeza en y=0, alto ~2."""
-    elipse = lambda cx, cy, rx, ry, rot: affinity.rotate(
-        affinity.scale(Point(cx, cy).buffer(1, quad_segs=48), rx, ry), rot, origin=(cx, cy))
-    cabeza = elipse(0, -0.38, 0.6, 0.38, 0)
-    izq = elipse(-0.24, -1.26, 0.16, 0.68, -9)
-    der_base = elipse(0.24, -1.0, 0.15, 0.46, 12)
-    der_punta = elipse(0.56, -1.38, 0.33, 0.13, 10)
-    g = unary_union([cabeza, izq, der_base, der_punta])
-    return g.buffer(0.09, quad_segs=16).buffer(-0.09, quad_segs=16)  # suaviza las uniones
+def colocar(paths, x0, x1, y0, y1, k):
+    """Escala los trazos (px del original) a mm y los centra en la tarjeta."""
+    tx = W / 2 - (x0 + x1) / 2 * k
+    ty = H / 2 - (y0 + y1) / 2 * k
+    return (f'<g transform="translate({tx:.4f} {ty:.4f}) scale({k:.6f})">'
+            f'<path fill-rule="evenodd" d="{"".join(p for _, p in paths)}"/></g>')
 
 
 def frente_svg():
-    size = 14.0  # cuerpo de RABBIT
-    _, _, ancho = BLACK.advances("RABBIT", size, tracking=-0.35)
-    l0, _ = BLACK.ink_bounds("R", size)
-    _, r1 = BLACK.ink_bounds("T", size)
-    t_adv = BLACK.advances("T", size)[1][0]
-    ink_w = ancho - l0 - (t_adv - r1)
-    x = (W - ink_w) / 2 - l0
-    cap = BLACK.cap * size / BLACK.upm
-    base = H / 2 + 4.2
-    rabbit, xs = BLACK.path("RABBIT", size, x, base, tracking=-0.35)
-    # DESIGNS justificado al ancho de RABBIT.
-    dsize = 5.0
-    dl0, _ = LIGHT.ink_bounds("D", dsize)
-    _, dr1 = LIGHT.ink_bounds("S", dsize)
-    _, _, dw0 = LIGHT.advances("DESIGNS", dsize)
-    s_adv = LIGHT.advances("S", dsize)[1][0]
-    d_ink = dw0 - dl0 - (s_adv - dr1)
-    track = (ink_w - d_ink) / 6
-    designs, _ = LIGHT.path("DESIGNS", dsize, x + l0 - dl0, base + 2.4 + LIGHT.cap * dsize / LIGHT.upm, track)
-    # Conejo centrado sobre la I.
-    i0, i1 = BLACK.ink_bounds("I", size)
-    cx = xs[4] + (i0 + i1) / 2
-    c = affinity.scale(conejo(), 4.6, 4.6, origin=(0, 0))
-    c = affinity.translate(c, cx, base - cap - 0.35)
-    return f'<path d="{rabbit}{designs}"/><path d="{d(c)}" fill-rule="evenodd"/>'
+    return colocar(TRAZADO, LOGO_X0, LOGO_X1, LOGO_Y0, LOGO_Y1, ANCHO_LOGO / (LOGO_X1 - LOGO_X0))
 
 
 def reverso_svg():
-    c = conejo()
-    minx, miny, maxx, maxy = c.bounds
-    k = 30.0 / (maxy - miny)
-    c = affinity.scale(c, k, k, origin=(0, 0))
-    minx, miny, maxx, maxy = c.bounds
-    c = affinity.translate(c, W / 2 - (minx + maxx) / 2, H / 2 - (miny + maxy) / 2)
-    return f'<path d="{d(c)}" fill-rule="evenodd"/>'
+    conejo = [t for t in TRAZADO if t[0] < 458]
+    return colocar(conejo, CONEJO_X0, CONEJO_X1, CONEJO_Y0, CONEJO_Y1, ALTO_CONEJO / (CONEJO_Y1 - CONEJO_Y0))
 
 
 def doc(body, metal=False):
