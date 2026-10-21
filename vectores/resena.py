@@ -1,4 +1,4 @@
-"""Placa/sticker "Reseña en Google" con el logo NFConecta pequeño abajo, para impresión DTF UV.
+"""Placa/sticker "Reseña en Google" para impresión DTF UV.
 
 Todo es opaco (sin brillos ni sombras semitransparentes). Genera versión con fondo blanco
 y versión sin fondo. Uso: python3 vectores/resena.py
@@ -12,11 +12,10 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 from PIL import Image
 
-import logo
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(BASE, "resena")
-W, H = 1000, 1040
+W, H = 1000, 940
 NAVY, BLUE = "#0B1F4D", "#1E5BD8"
 
 # Logotipo de Google (trazado de Iconify "logos:google", 512 x 168) con los colores oficiales.
@@ -108,17 +107,14 @@ def svg(con_fondo):
                 f'fill="none" stroke="#6FA4FF" stroke-width="3"/>'
                 f'<path d="{BOLD.path("ACERCA TU CELULAR", 45, px + pw / 2, py + 62)}'
                 f'{REG.path("y déjanos tu reseña", 43, px + pw / 2, py + 118)}" fill="#FFFFFF"/>')
-    lw = 460
-    ls = lw / logo.W
-    marca = (f'<g transform="translate({(W - lw) / 2} {H - 150}) scale({ls:.5f})">{logo.fichas()}</g>')
     fondo = (f'<rect width="{W}" height="{H}" rx="40" fill="#FFFFFF"/>'
              f'<g clip-path="url(#recorte)">{ondas_esquina()}</g>') if con_fondo else ""
     clip = f'<clipPath id="recorte"><rect width="{W}" height="{H}" rx="40"/></clipPath>'
-    defs = DEFS.replace("</defs>", clip + "</defs>") + "\n" + logo.DEFS
+    defs = DEFS.replace("</defs>", clip + "</defs>")
     return (f'<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" '
             f'viewBox="0 0 {W} {H}" width="{W}" height="{H}">\n{defs}\n{fondo}\n'
             f'<g transform="translate({(W - gw) / 2} 105) scale({gs:.5f})">{google}</g>\n'
-            f'{estrellas}\n{telefono(185, py + ph / 2)}\n{pastilla}\n{marca}\n</svg>\n')
+            f'{estrellas}\n{telefono(185, py + ph / 2)}\n{pastilla}\n</svg>\n')
 
 
 if __name__ == "__main__":
